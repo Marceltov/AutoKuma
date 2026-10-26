@@ -1,0 +1,52 @@
+name: Build homelab image
+
+# Fork-only: upstream v2.1.0-rc.2 plus BigBoot/AutoKuma#200 (kuma.ready_timeout),
+# published as ghcr.io/marceltov/autokuma:<UPSTREAM>-homelab.<run>. Retire
+# this branch once upstream ships a release containing #200.
+
+on:
+  push:
+    branches:
+      - homelab
+
+env:
+  UPSTREAM: 2.1.0-rc.2
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/marceltov/autokuma
+          tags: |
+            type=raw,value=${{ env.UPSTREAM }}-homelab.${{ github.run_number }}
+            type=sha,prefix=sha-
+          flavor: |
+            latest=false
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
